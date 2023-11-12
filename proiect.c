@@ -5,12 +5,25 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <dirent.h>
+#include <string.h>
 #include <time.h>
 
 #define BMP_HEADER_SIZE 54
 
-void nume_fisier(int output_file,char *file_name){
-dprintf(output_file, "nume fisier: %s\n", file_name);
+void nume_fisier(int output_file,char *file_path){
+    char *file_name = strrchr(file_path, '/');
+dprintf(output_file, "nume fisier: %s\n", file_name+1);
+}
+
+void nume_legatura(int output_file,char *link_path){
+    char *file_name = strrchr(link_path, '/');
+dprintf(output_file, "nume legatura: %s\n", file_name+1);
+}
+
+void nume_director(int output_file,char *dir_path){
+    char *file_name = strrchr(dir_path, '/');
+dprintf(output_file, "nume director: %s\n", file_name+1);
 }
 
 void detalii_timp(int output_file,  struct stat file_stat) {
@@ -51,66 +64,155 @@ void contor_legaturi(int output_file,  struct stat file_stat) {
     dprintf(output_file, "contorul de legaturi: %ld\n", file_stat.st_nlink);
 }
 
-void informatii_bmp(int output_file,uint8_t header[])
+void informatii_bmp(int input_file,int output_file)
 {
-   
-    dprintf(output_file, "inaltime: %d\n", *(int32_t*)&header[18]);
-    dprintf(output_file, "lungime: %d\n", *(int32_t*)&header[22]);
-}
-
-int main(int argc, char *argv[]) {
-    
-    int input_file, output_file;
-     struct stat file_stat;
-    int r;
-    if (argc != 2) {
-        printf("Usage: %s <fisier_intrare>\n", argv[0]);
-       exit(-1);
-    }
-
-    if(( input_file = open(argv[1], O_RDONLY)) < 0){
-		printf("Error opening input file");
-		exit(2);
-	}
-
-
-    r = stat(argv[1],&file_stat);
-    if( r==-1 )
-    {
-        fprintf(stderr,"File error\n");
-        exit(1);
-    }
-
     uint8_t header[BMP_HEADER_SIZE];
     ssize_t bytes_read = read(input_file, header, BMP_HEADER_SIZE);
     if (bytes_read != BMP_HEADER_SIZE) {
         perror("Eroare citire header fisier BMP");
         close(input_file);
-        return 1;
+        exit(2);
     }
 
-   
-    if(close(input_file) != 0){
-        perror("Error close input_file");
-    }
+    dprintf(output_file, "inaltime: %d\n", *(int32_t*)&header[18]);
+    dprintf(output_file, "lungime: %d\n", *(int32_t*)&header[22]);
+}
 
-    if((output_file=open("statistica.txt", O_WRONLY | O_CREAT | O_EXCL, S_IRWXU)) < 0){
-      		printf("Error creating destination file\n");
-      		exit(3);
-    }
-
-
-    nume_fisier(output_file,argv[1]);
-    informatii_bmp(output_file,header);
-    dimensiune(output_file,file_stat);
-    identif_utiliz(output_file, file_stat);
-    detalii_timp(output_file,file_stat);
-    contor_legaturi(output_file,file_stat);
-    drept_acces(output_file,file_stat);
-   
+void process_file(char *file_path, int output_file) {
+    struct stat file_stat;
+    int r;
     
-    if(close(output_file) != 0){
+
+    if ((r = stat(file_path, &file_stat)) == -1) {
+        fprintf(stderr, "File error\n");
+        return;
+    }
+
+    int input_file;
+    if ((input_file = open(file_path, O_RDONLY)) < 0) {
+        perror("Error opening input file");
+        return;
+    }
+    
+    
+    if (strstr(file_path, ".bmp") != NULL) {
+        nume_fisier(output_file,file_path);
+        informatii_bmp(input_file,output_file);
+        dimensiune(output_file,file_stat);
+        identif_utiliz(output_file, file_stat);
+        detalii_timp(output_file,file_stat);
+        contor_legaturi(output_file,file_stat);
+        drept_acces(output_file,file_stat);
+        dprintf(output_file,"\n\n");
+    }
+    else{
+        nume_fisier(output_file,file_path);
+        dimensiune(output_file,file_stat);
+        identif_utiliz(output_file, file_stat);
+        detalii_timp(output_file,file_stat);
+        contor_legaturi(output_file,file_stat);
+        drept_acces(output_file,file_stat);
+        dprintf(output_file,"\n\n");
+    }
+     
+    
+
+    if (close(input_file) != 0) {
+        perror("Error close input file");
+    }
+}
+
+void procesare_legatura_simbolica(char *link_path, int output_file) {
+    struct stat link_stat;
+    ssize_t link_size;
+    char target_path[256];
+
+    if (lstat(link_path, &link_stat) == -1) {
+        fprintf(stderr, "Error lstat: %s\n", link_path);
+        return;
+    }
+
+    link_size = readlink(link_path, target_path, sizeof(target_path) - 1);
+    if (link_size == -1) {
+        fprintf(stderr, "Error readlink: %s\n", link_path);
+        return;
+    }
+    target_path[link_size] = '\0';
+
+    nume_legatura(output_file,link_path);
+    dimensiune(output_file,link_stat);
+    dprintf(output_file, "dimensiune fisier target: %ld\n", link_size);
+    drept_acces(output_file,link_stat);
+    dprintf(output_file,"\n\n");
+   
+}
+
+void info_director(int output_file, struct stat dir_stat,char entry_path[]) {
+    nume_director(output_file,entry_path);
+    identif_utiliz(output_file, dir_stat); 
+    drept_acces(output_file,dir_stat);
+    dprintf(output_file,"\n\n");
+}
+
+void procesare_director(char *dir_path, int output_file) {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat dir_stat;
+
+    if ((dir = opendir(dir_path)) == NULL) {
+        perror("Error opening directory");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        char entry_path[256];
+        snprintf(entry_path, sizeof(entry_path) + 1, "%s/%s", dir_path, entry->d_name);
+        if (entry->d_type == DT_REG) {
+            char file_path[256];
+            snprintf(file_path, sizeof(file_path)+1, "%s/%s", dir_path, entry->d_name);
+            process_file(file_path, output_file);
+        }
+        else if(entry->d_type == DT_LNK){
+           
+            char link_path[256];
+            snprintf(link_path, sizeof(link_path) + 1, "%s/%s", dir_path, entry->d_name);
+            procesare_legatura_simbolica(link_path, output_file);
+        }
+        else if(entry->d_type == DT_DIR){
+            
+            if (lstat(entry_path, &dir_stat) == -1) {
+                fprintf(stderr, "Error lstat: %s\n", entry_path);
+                continue;
+            }
+            info_director(output_file, dir_stat,entry_path);
+            
+        }
+    }
+
+    if(closedir(dir) != 0){
+       perror("Error close directory");
+    }
+}
+
+int main(int argc, char *argv[]) {
+    
+     int output_file;
+    if (argc != 2) {
+        printf("Usage: %s <director_intrare>\n", argv[0]);
+        exit(-1);
+    }
+
+    if ((output_file = open("statistica.txt", O_WRONLY | O_CREAT | O_EXCL, S_IRWXU)) < 0) {
+        printf("Error creating destination file\n");
+        exit(3);
+    }
+
+    procesare_director(argv[1], output_file);
+
+    if (close(output_file) != 0) {
         perror("Error close output file");
     }
+
     return 0;
 }
+

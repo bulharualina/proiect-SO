@@ -5,9 +5,12 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <dirent.h>
 #include <string.h>
 #include <time.h>
+
+#include <sys/wait.h>
 
 #define BMP_HEADER_SIZE 54
 
@@ -78,7 +81,61 @@ void informatii_bmp(int input_file,int output_file)
     dprintf(output_file, "lungime: %d\n", *(int32_t*)&header[22]);
 }
 
-void process_file(char *file_path, int output_file) {
+int numara_linii_fisier(const char *file_path) {
+    FILE *file = fopen(file_path, "r");
+    if (file == NULL) {
+        perror("Eroare deschidere fisier");
+        return -1;
+    }
+
+    int numar_linii = 0;
+    char buffer[1024];
+
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+    
+        if (buffer[0] != '\n') {
+            numar_linii++;
+        }
+    }
+
+    fclose(file);
+    return numar_linii;
+}
+
+void process_regular_file(char *file_path, char *output_dir,int file_out) {
+    struct stat file_stat;
+    int r;
+    
+    if ((r = stat(file_path, &file_stat)) == -1) {
+        fprintf(stderr, "File error\n");
+        return;
+    }
+
+    char output_filename[256];
+    snprintf(output_filename, sizeof(output_filename), "%s/%s_statistica.txt", output_dir, strrchr(file_path, '/') + 1);
+    
+    int output_file = open(output_filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+    if (output_file < 0) {
+            perror("Error opening output file");
+            return;
+    }
+
+    nume_fisier(output_file,file_path);
+    dimensiune(output_file,file_stat);
+    identif_utiliz(output_file, file_stat);
+    detalii_timp(output_file,file_stat);
+    contor_legaturi(output_file,file_stat);
+    drept_acces(output_file,file_stat);
+   
+    int numar_linii = numara_linii_fisier(output_filename);
+    dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
+    
+    if (close(output_file) != 0) {
+        perror("Error close input file");
+    }
+}
+
+void process_file_bmp(char *file_path, char *output_dir,int file_out) {
     struct stat file_stat;
     int r;
     
@@ -93,36 +150,37 @@ void process_file(char *file_path, int output_file) {
         perror("Error opening input file");
         return;
     }
+
+    char output_filename[256];
+    snprintf(output_filename, sizeof(output_filename), "%s/%s_statistica.txt", output_dir, strrchr(file_path, '/') + 1);
     
-    
-    if (strstr(file_path, ".bmp") != NULL) {
-        nume_fisier(output_file,file_path);
-        informatii_bmp(input_file,output_file);
-        dimensiune(output_file,file_stat);
-        identif_utiliz(output_file, file_stat);
-        detalii_timp(output_file,file_stat);
-        contor_legaturi(output_file,file_stat);
-        drept_acces(output_file,file_stat);
-        dprintf(output_file,"\n\n");
+    int output_file = open(output_filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+    if (output_file < 0) {
+            perror("Error opening output file");
+            return;
     }
-    else{
-        nume_fisier(output_file,file_path);
-        dimensiune(output_file,file_stat);
-        identif_utiliz(output_file, file_stat);
-        detalii_timp(output_file,file_stat);
-        contor_legaturi(output_file,file_stat);
-        drept_acces(output_file,file_stat);
-        dprintf(output_file,"\n\n");
-    }
-     
     
+    nume_fisier(output_file,file_path);
+    informatii_bmp(input_file,output_file);
+    dimensiune(output_file,file_stat);
+    identif_utiliz(output_file, file_stat);
+    detalii_timp(output_file,file_stat);
+    contor_legaturi(output_file,file_stat);
+    drept_acces(output_file,file_stat);
+    
+    
+    int numar_linii = numara_linii_fisier(output_filename);
+    dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
 
     if (close(input_file) != 0) {
         perror("Error close input file");
     }
+    if (close(output_file) != 0) {
+        perror("Error close input file");
+    }
 }
 
-void procesare_legatura_simbolica(char *link_path, int output_file) {
+void procesare_legatura_simbolica(char *link_path, int file_out,char *output_dir) {
     struct stat link_stat;
     ssize_t link_size;
     char target_path[256];
@@ -139,66 +197,120 @@ void procesare_legatura_simbolica(char *link_path, int output_file) {
     }
     target_path[link_size] = '\0';
 
+    char output_filename[256];
+    snprintf(output_filename, sizeof(output_filename), "%s/%s_statistica.txt", output_dir, strrchr(link_path, '/') + 1);
+    
+    int output_file = open(output_filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+    if (output_file < 0) {
+            perror("Error opening output file");
+            return;
+    }
+
     nume_legatura(output_file,link_path);
     dimensiune(output_file,link_stat);
     dprintf(output_file, "dimensiune fisier target: %ld\n", link_size);
     drept_acces(output_file,link_stat);
-    dprintf(output_file,"\n\n");
+    
    
+    int numar_linii = numara_linii_fisier(output_filename);
+    dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
+
+    if (close(output_file) != 0) {
+        perror("Error close input file");
+    }
 }
 
-void info_director(int output_file, struct stat dir_stat,char entry_path[]) {
+void info_director(int file_out, struct stat dir_stat,char entry_path[], char *output_dir) {
+    
+    char output_filename[256];
+    snprintf(output_filename, sizeof(output_filename), "%s/%s_statistica.txt", output_dir, strrchr(entry_path, '/') + 1);
+    int output_file = open(output_filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+    if (output_file < 0) {
+            perror("Error opening output file");
+            return;
+    }
+
     nume_director(output_file,entry_path);
     identif_utiliz(output_file, dir_stat); 
     drept_acces(output_file,dir_stat);
-    dprintf(output_file,"\n\n");
+    
+
+  
+    int numar_linii = numara_linii_fisier(output_filename);
+    dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
+
+    if (close(output_file) != 0) {
+        perror("Error close input file");
+    }
 }
 
-void procesare_director(char *dir_path, int output_file) {
-    DIR *dir;
+
+void procesare_director(char *dir_path, int output_file,char *output_dir) {
+    DIR *dir_in, *dir_out;
     struct dirent *entry;
     struct stat dir_stat;
+    pid_t pid;
 
-    if ((dir = opendir(dir_path)) == NULL) {
-        perror("Error opening directory");
+    if ((dir_in = opendir(dir_path)) == NULL) {
+        perror("Error opening input directory");
         return;
     }
 
-    while ((entry = readdir(dir)) != NULL) {
+    if ((dir_out = opendir(output_dir)) == NULL) {
+        perror("Error opening output directory");
+        return;
+    }
+
+
+    while ((entry = readdir(dir_in)) != NULL) {
         char entry_path[256];
         snprintf(entry_path, sizeof(entry_path) + 1, "%s/%s", dir_path, entry->d_name);
-        if (entry->d_type == DT_REG) {
-            char file_path[256];
-            snprintf(file_path, sizeof(file_path)+1, "%s/%s", dir_path, entry->d_name);
-            process_file(file_path, output_file);
+        if(( pid = fork()) < 0){
+            perror("Eroare la fork");
+            exit(-1);
         }
-        else if(entry->d_type == DT_LNK){
-           
-            char link_path[256];
-            snprintf(link_path, sizeof(link_path) + 1, "%s/%s", dir_path, entry->d_name);
-            procesare_legatura_simbolica(link_path, output_file);
-        }
-        else if(entry->d_type == DT_DIR){
-            
-            if (lstat(entry_path, &dir_stat) == -1) {
-                fprintf(stderr, "Error lstat: %s\n", entry_path);
-                continue;
+        if(pid == 0){
+            if (entry->d_type == DT_REG) {
+                char file_path[256];
+                snprintf(file_path, sizeof(file_path)+1, "%s/%s", dir_path, entry->d_name);
+                if (strstr(file_path, ".bmp") != NULL)
+                {
+                    process_file_bmp(file_path,output_dir,output_file);
+                    exit(0);// Terminăm execuția procesului fiu
+                }
+                process_regular_file(file_path,output_dir,output_file);
+                exit(0);// Terminăm execuția procesului fiu
+                
             }
-            info_director(output_file, dir_stat,entry_path);
-            
+            else if(entry->d_type == DT_LNK){
+           
+                char link_path[256];
+                snprintf(link_path, sizeof(link_path) + 1, "%s/%s", dir_path, entry->d_name);
+                procesare_legatura_simbolica(link_path, output_file,output_dir);
+                exit(0);// Terminăm execuția procesului fiu
+            }
+            else if(entry->d_type == DT_DIR){
+                if (lstat(entry_path, &dir_stat) == -1) {
+                    fprintf(stderr, "Error lstat: %s\n", entry_path);
+                    continue;
+                }
+                info_director(output_file, dir_stat,entry_path,output_dir);
+                exit(0);// Terminăm execuția procesului fiu
+            }
         }
     }
 
-    if(closedir(dir) != 0){
-       perror("Error close directory");
-    }
+    closedir(dir_in);
+    closedir(dir_out);
+
 }
+
 
 int main(int argc, char *argv[]) {
     
      int output_file;
-    if (argc != 2) {
-        printf("Usage: %s <director_intrare>\n", argv[0]);
+    if (argc != 3) {
+        printf("Usage: %s <director_intrare> <director_iesire>\n", argv[0]);
         exit(-1);
     }
 
@@ -207,7 +319,7 @@ int main(int argc, char *argv[]) {
         exit(3);
     }
 
-    procesare_director(argv[1], output_file);
+    procesare_director(argv[1], output_file,argv[2]);
 
     if (close(output_file) != 0) {
         perror("Error close output file");

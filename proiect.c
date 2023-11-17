@@ -102,6 +102,40 @@ int numara_linii_fisier(const char *file_path) {
     return numar_linii;
 }
 
+void convert_gri(const char *file_path) {
+    FILE *input_file = fopen(file_path, "r+");
+    if (input_file == NULL) {
+        perror("Error opening input file");
+        return;
+    }
+
+    uint8_t header[BMP_HEADER_SIZE];
+    fread(header, sizeof(uint8_t), BMP_HEADER_SIZE, input_file); 
+
+    int32_t width = *(int32_t *)&header[18];
+    int32_t height = *(int32_t *)&header[22];
+
+    fseek(input_file, BMP_HEADER_SIZE, SEEK_SET);//sarim peste header sa ajungem la datele pixelilor
+
+    for (int row = 0; row < height; row++) {
+        for (int col = 0; col < width; col++) {
+            // Citirea valorilor RGB ale unui pixel
+            uint8_t pixel[3];
+            fread(pixel, sizeof(uint8_t), 3, input_file);
+
+            // Calculul valorii tonului de gri
+            uint8_t grey_value = (uint8_t)(0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0]);
+
+            // Aplicarea conversiei pentru pixel
+            uint8_t grey_pixel[3] = {grey_value, grey_value, grey_value};
+            fseek(input_file, -3, SEEK_CUR); // Repozitionare la începutul pixelului
+            fwrite(grey_pixel, sizeof(uint8_t), 3, input_file);
+        }
+    }
+
+    fclose(input_file);
+}
+
 void process_regular_file(char *file_path, char *output_dir,int file_out) {
     struct stat file_stat;
     int r;
@@ -126,9 +160,7 @@ void process_regular_file(char *file_path, char *output_dir,int file_out) {
     detalii_timp(output_file,file_stat);
     contor_legaturi(output_file,file_stat);
     drept_acces(output_file,file_stat);
-    //dprintf(output_file,"\n\n");
-
-    //int numar_linii = 0;
+ 
     int numar_linii = numara_linii_fisier(output_filename);
     dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
     
@@ -169,10 +201,12 @@ void process_file_bmp(char *file_path, char *output_dir,int file_out) {
     detalii_timp(output_file,file_stat);
     contor_legaturi(output_file,file_stat);
     drept_acces(output_file,file_stat);
-    //dprintf(output_file,"\n\n");
+    
     
     int numar_linii = numara_linii_fisier(output_filename);
     dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
+
+    
 
     if (close(input_file) != 0) {
         perror("Error close input file");
@@ -212,7 +246,7 @@ void procesare_legatura_simbolica(char *link_path, int file_out,char *output_dir
     dimensiune(output_file,link_stat);
     dprintf(output_file, "dimensiune fisier target: %ld\n", link_size);
     drept_acces(output_file,link_stat);
-    //dprintf(output_file,"\n\n");
+    
    
     int numar_linii = numara_linii_fisier(output_filename);
     dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
@@ -235,7 +269,7 @@ void info_director(int file_out, struct stat dir_stat,char entry_path[], char *o
     nume_director(output_file,entry_path);
     identif_utiliz(output_file, dir_stat); 
     drept_acces(output_file,dir_stat);
-    //dprintf(output_file,"\n\n");
+    
 
   
     int numar_linii = numara_linii_fisier(output_filename);
@@ -282,17 +316,18 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
                 if (strstr(file_path, ".bmp") != NULL)
                 {
                     process_file_bmp(file_path,output_dir,output_file);
+                    convert_gri(file_path);
                     int status;
                     wait(&status);
                     exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-                    printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", getpid(), exit_code);
+                    dprintf(output_file,"S-a încheiat procesul cu pid-ul %d și codul %d\n\n", getpid(), exit_code);
                     exit(0);// Terminăm execuția procesului fiu
                 }
                 process_regular_file(file_path,output_dir,output_file);
                 int status;
                 wait(&status);
                 exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -2;
-                printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", getpid(), exit_code);
+                dprintf(output_file,"S-a încheiat procesul cu pid-ul %d și codul %d\n\n", getpid(), exit_code);
                 exit(0);// Terminăm execuția procesului fiu
                 
             }
@@ -304,7 +339,7 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
                 int status;
                 wait(&status);
                 exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -3;
-                printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", getpid(), exit_code);
+                dprintf(output_file,"S-a încheiat procesul cu pid-ul %d și codul %d\n\n", getpid(), exit_code);
                 exit(0);// Terminăm execuția procesului fiu
             }
             else if(entry->d_type == DT_DIR){
@@ -316,7 +351,7 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
                 int status;
                 wait(&status);
                 exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -4;
-                printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", getpid(), exit_code);
+                dprintf(output_file,"S-a încheiat procesul cu pid-ul %d și codul %d\n\n", getpid(), exit_code);
                 exit(0);// Terminăm execuția procesului fiu
             }
         }

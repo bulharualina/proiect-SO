@@ -92,7 +92,7 @@ int numara_linii_fisier(const char *file_path) {
     char buffer[1024];
 
     while (fgets(buffer, sizeof(buffer), file) != NULL) {
-    
+        // Excludem liniile goale din numărătoare
         if (buffer[0] != '\n') {
             numar_linii++;
         }
@@ -126,7 +126,9 @@ void process_regular_file(char *file_path, char *output_dir,int file_out) {
     detalii_timp(output_file,file_stat);
     contor_legaturi(output_file,file_stat);
     drept_acces(output_file,file_stat);
-   
+    //dprintf(output_file,"\n\n");
+
+    //int numar_linii = 0;
     int numar_linii = numara_linii_fisier(output_filename);
     dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
     
@@ -167,7 +169,7 @@ void process_file_bmp(char *file_path, char *output_dir,int file_out) {
     detalii_timp(output_file,file_stat);
     contor_legaturi(output_file,file_stat);
     drept_acces(output_file,file_stat);
-    
+    //dprintf(output_file,"\n\n");
     
     int numar_linii = numara_linii_fisier(output_filename);
     dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
@@ -210,7 +212,7 @@ void procesare_legatura_simbolica(char *link_path, int file_out,char *output_dir
     dimensiune(output_file,link_stat);
     dprintf(output_file, "dimensiune fisier target: %ld\n", link_size);
     drept_acces(output_file,link_stat);
-    
+    //dprintf(output_file,"\n\n");
    
     int numar_linii = numara_linii_fisier(output_filename);
     dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
@@ -233,7 +235,7 @@ void info_director(int file_out, struct stat dir_stat,char entry_path[], char *o
     nume_director(output_file,entry_path);
     identif_utiliz(output_file, dir_stat); 
     drept_acces(output_file,dir_stat);
-    
+    //dprintf(output_file,"\n\n");
 
   
     int numar_linii = numara_linii_fisier(output_filename);
@@ -250,6 +252,8 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
     struct dirent *entry;
     struct stat dir_stat;
     pid_t pid;
+    int exit_code;
+    
 
     if ((dir_in = opendir(dir_path)) == NULL) {
         perror("Error opening input directory");
@@ -270,15 +274,25 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
             exit(-1);
         }
         if(pid == 0){
+          
+            
             if (entry->d_type == DT_REG) {
                 char file_path[256];
                 snprintf(file_path, sizeof(file_path)+1, "%s/%s", dir_path, entry->d_name);
                 if (strstr(file_path, ".bmp") != NULL)
                 {
                     process_file_bmp(file_path,output_dir,output_file);
+                    int status;
+                    wait(&status);
+                    exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+                    printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", getpid(), exit_code);
                     exit(0);// Terminăm execuția procesului fiu
                 }
                 process_regular_file(file_path,output_dir,output_file);
+                int status;
+                wait(&status);
+                exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -2;
+                printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", getpid(), exit_code);
                 exit(0);// Terminăm execuția procesului fiu
                 
             }
@@ -287,6 +301,10 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
                 char link_path[256];
                 snprintf(link_path, sizeof(link_path) + 1, "%s/%s", dir_path, entry->d_name);
                 procesare_legatura_simbolica(link_path, output_file,output_dir);
+                int status;
+                wait(&status);
+                exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -3;
+                printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", getpid(), exit_code);
                 exit(0);// Terminăm execuția procesului fiu
             }
             else if(entry->d_type == DT_DIR){
@@ -295,6 +313,10 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
                     continue;
                 }
                 info_director(output_file, dir_stat,entry_path,output_dir);
+                int status;
+                wait(&status);
+                exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -4;
+                printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", getpid(), exit_code);
                 exit(0);// Terminăm execuția procesului fiu
             }
         }

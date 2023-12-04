@@ -1,0 +1,6 @@
+nume legatura: link_to_file.txt
+dimensiune: 8 bytes
+dimensiune fisier target: 8
+drepturi de acces user: RWX
+drepturi de acces grup: RWX
+drepturi de acces altii: RWX

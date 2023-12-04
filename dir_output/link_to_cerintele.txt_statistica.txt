@@ -1,0 +1,6 @@
+nume legatura: link_to_cerintele.txt
+dimensiune: 13 bytes
+dimensiune fisier target: 13
+drepturi de acces user: RWX
+drepturi de acces grup: RWX
+drepturi de acces altii: RWX

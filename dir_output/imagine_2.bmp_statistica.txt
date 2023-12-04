@@ -1,0 +1,8 @@
+nume fisier: imagine_2.bmp
+dimensiune: 818058 bytes
+identificatorul utilizatorului: 1000
+timpul ultimei modificari :  04.12.2023 
+contorul de legaturi: 1
+drepturi de acces user: RW-
+drepturi de acces grup: R--
+drepturi de acces altii: R--

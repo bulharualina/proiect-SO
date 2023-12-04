@@ -285,8 +285,8 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
     DIR *dir_in, *dir_out;
     struct dirent *entry;
     struct stat dir_stat;
-    pid_t pid;
-    int exit_code;
+    //pid_t pid;
+    //int exit_code;
     
 
     if ((dir_in = opendir(dir_path)) == NULL) {
@@ -303,13 +303,12 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
     while ((entry = readdir(dir_in)) != NULL) {
         char entry_path[256];
         snprintf(entry_path, sizeof(entry_path) + 1, "%s/%s", dir_path, entry->d_name);
-        if(( pid = fork()) < 0){
-            perror("Eroare la fork");
-            exit(-1);
-        }
-        if(pid == 0){
-          
-            
+            pid_t pid = fork();
+            if(pid<0){
+                printf("Eroare la fork");
+                exit(2);
+            }
+            if(pid == 0){
             if (entry->d_type == DT_REG) {
                 char file_path[256];
                 snprintf(file_path, sizeof(file_path)+1, "%s/%s", dir_path, entry->d_name);
@@ -317,30 +316,14 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
                 {
                     process_file_bmp(file_path,output_dir,output_file);
                     convert_gri(file_path);
-                    int status;
-                    wait(&status);
-                    exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-                    dprintf(output_file,"S-a încheiat procesul cu pid-ul %d și codul %d\n\n", getpid(), exit_code);
-                    exit(0);// Terminăm execuția procesului fiu
                 }
                 process_regular_file(file_path,output_dir,output_file);
-                int status;
-                wait(&status);
-                exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -2;
-                dprintf(output_file,"S-a încheiat procesul cu pid-ul %d și codul %d\n\n", getpid(), exit_code);
-                exit(0);// Terminăm execuția procesului fiu
-                
             }
             else if(entry->d_type == DT_LNK){
            
                 char link_path[256];
                 snprintf(link_path, sizeof(link_path) + 1, "%s/%s", dir_path, entry->d_name);
                 procesare_legatura_simbolica(link_path, output_file,output_dir);
-                int status;
-                wait(&status);
-                exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -3;
-                dprintf(output_file,"S-a încheiat procesul cu pid-ul %d și codul %d\n\n", getpid(), exit_code);
-                exit(0);// Terminăm execuția procesului fiu
             }
             else if(entry->d_type == DT_DIR){
                 if (lstat(entry_path, &dir_stat) == -1) {
@@ -348,19 +331,25 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
                     continue;
                 }
                 info_director(output_file, dir_stat,entry_path,output_dir);
-                int status;
-                wait(&status);
-                exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -4;
-                dprintf(output_file,"S-a încheiat procesul cu pid-ul %d și codul %d\n\n", getpid(), exit_code);
-                exit(0);// Terminăm execuția procesului fiu
             }
         }
     }
-
+    
+    int status;
+    pid_t childPid;
+    while ((childPid = wait(&status)) > 0) 
+    {
+        if (WIFEXITED(status)) 
+        {
+            
+            printf("Child process with PID %d exited with status %d\n", childPid, WEXITSTATUS(status));
+        }
+    }
+    
     closedir(dir_in);
     closedir(dir_out);
-
 }
+
 
 
 int main(int argc, char *argv[]) {
@@ -375,9 +364,9 @@ int main(int argc, char *argv[]) {
         printf("Error creating destination file\n");
         exit(3);
     }
-
+   
     procesare_director(argv[1], output_file,argv[2]);
-
+    
     if (close(output_file) != 0) {
         perror("Error close output file");
     }

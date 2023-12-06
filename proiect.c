@@ -92,7 +92,6 @@ int numara_linii_fisier(const char *file_path) {
     char buffer[1024];
 
     while (fgets(buffer, sizeof(buffer), file) != NULL) {
-        // Excludem liniile goale din numărătoare
         if (buffer[0] != '\n') {
             numar_linii++;
         }
@@ -285,9 +284,8 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
     DIR *dir_in, *dir_out;
     struct dirent *entry;
     struct stat dir_stat;
-    //pid_t pid;
-    //int exit_code;
     
+
 
     if ((dir_in = opendir(dir_path)) == NULL) {
         perror("Error opening input directory");
@@ -312,12 +310,17 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
             if (entry->d_type == DT_REG) {
                 char file_path[256];
                 snprintf(file_path, sizeof(file_path)+1, "%s/%s", dir_path, entry->d_name);
-                if (strstr(file_path, ".bmp") != NULL)
+                
+                if (strstr(file_path, ".bmp") != NULL )
                 {
                     process_file_bmp(file_path,output_dir,output_file);
-                    convert_gri(file_path);
-                }
+                    
+                    convert_gri(file_path);   
+                   
+                }else{                
                 process_regular_file(file_path,output_dir,output_file);
+                
+                }    
             }
             else if(entry->d_type == DT_LNK){
            
@@ -326,13 +329,22 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
                 procesare_legatura_simbolica(link_path, output_file,output_dir);
             }
             else if(entry->d_type == DT_DIR){
+                if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                    exit(0);
+                }
+
                 if (lstat(entry_path, &dir_stat) == -1) {
                     fprintf(stderr, "Error lstat: %s\n", entry_path);
-                    continue;
+                    exit(1);
                 }
+                
                 info_director(output_file, dir_stat,entry_path,output_dir);
+                
             }
-        }
+           
+            exit(0);
+            }
+        
     }
     
     int status;

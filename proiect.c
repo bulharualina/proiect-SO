@@ -12,23 +12,27 @@
 
 #include <sys/wait.h>
 
-#define BMP_HEADER_SIZE 54
+#define BMP_HEADER_SIZE 54 // Definirea dimensiunii header-ului BMP
 
+// Funcția pentru afișarea numelui fișierului
 void nume_fisier(int output_file,char *file_path){
     char *file_name = strrchr(file_path, '/');
 dprintf(output_file, "nume fisier: %s\n", file_name+1);
 }
 
+// Funcția pentru afișarea numelui legăturii simbolice
 void nume_legatura(int output_file,char *link_path){
     char *file_name = strrchr(link_path, '/');
 dprintf(output_file, "nume legatura: %s\n", file_name+1);
 }
 
+// Funcția pentru afișarea numelui directorului
 void nume_director(int output_file,char *dir_path){
     char *file_name = strrchr(dir_path, '/');
 dprintf(output_file, "nume director: %s\n", file_name+1);
 }
 
+// Funcția pentru afișarea detaliilor despre timp
 void detalii_timp(int output_file,  struct stat file_stat) {
 
   time_t timpModificare = file_stat.st_mtime;
@@ -38,6 +42,7 @@ void detalii_timp(int output_file,  struct stat file_stat) {
     dprintf(output_file,"timpul ultimei modificari :  %s \n", time_str);
 }
 
+// Funcția pentru afișarea drepturilor de acces
 void drept_acces(int output_file,struct stat file_stat){
     dprintf(output_file, "drepturi de acces user: %c%c%c\n",
                         file_stat.st_mode & S_IRUSR ? 'R' : '-',
@@ -53,20 +58,22 @@ void drept_acces(int output_file,struct stat file_stat){
                         file_stat.st_mode & S_IXOTH ? 'X' : '-');
 }
 
+// Funcția pentru afișarea identificatorului utilizatorului
 void identif_utiliz(int output_file, struct stat file_stat) {
     dprintf(output_file, "identificatorul utilizatorului: %d\n", file_stat.st_uid);
 }
 
-
-
+// Funcția pentru afișarea dimensiunii
 void dimensiune(int output_file,struct stat file_stat){
     dprintf(output_file, "dimensiune: %ld bytes\n", file_stat.st_size);
 }
 
+// Funcția pentru afișarea contorului de legături
 void contor_legaturi(int output_file,  struct stat file_stat) {
     dprintf(output_file, "contorul de legaturi: %ld\n", file_stat.st_nlink);
 }
 
+// Funcția pentru extragerea informațiilor despre un fișier BMP
 void informatii_bmp(int input_file,int output_file)
 {
     uint8_t header[BMP_HEADER_SIZE];
@@ -81,6 +88,7 @@ void informatii_bmp(int input_file,int output_file)
     dprintf(output_file, "lungime: %d\n", *(int32_t*)&header[22]);
 }
 
+// Funcția pentru numărarea liniilor dintr-un fișier
 int numara_linii_fisier(const char *file_path) {
     FILE *file = fopen(file_path, "r");
     if (file == NULL) {
@@ -101,6 +109,7 @@ int numara_linii_fisier(const char *file_path) {
     return numar_linii;
 }
 
+// Funcția pentru conversia unui fișier BMP la tonuri de gri
 void convert_gri(const char *file_path) {
     FILE *input_file = fopen(file_path, "r+");
     if (input_file == NULL) {
@@ -133,8 +142,10 @@ void convert_gri(const char *file_path) {
     }
 
     fclose(input_file);
+    printf("    Fisierul BMP a fost convertit in gri cu SUCCES\n");
 }
 
+// Funcția de procesare a fișierelor regulare
 void process_regular_file(char *file_path, char *output_dir,int file_out) {
     struct stat file_stat;
     int r;
@@ -168,6 +179,7 @@ void process_regular_file(char *file_path, char *output_dir,int file_out) {
     }
 }
 
+// Funcția de procesare a fișierelor BMP
 void process_file_bmp(char *file_path, char *output_dir,int file_out) {
     struct stat file_stat;
     int r;
@@ -201,11 +213,8 @@ void process_file_bmp(char *file_path, char *output_dir,int file_out) {
     contor_legaturi(output_file,file_stat);
     drept_acces(output_file,file_stat);
     
-    
     int numar_linii = numara_linii_fisier(output_filename);
     dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
-
-    
 
     if (close(input_file) != 0) {
         perror("Error close input file");
@@ -215,6 +224,7 @@ void process_file_bmp(char *file_path, char *output_dir,int file_out) {
     }
 }
 
+// Funcția de procesare a legăturilor simbolice
 void procesare_legatura_simbolica(char *link_path, int file_out,char *output_dir) {
     struct stat link_stat;
     ssize_t link_size;
@@ -246,7 +256,6 @@ void procesare_legatura_simbolica(char *link_path, int file_out,char *output_dir
     dprintf(output_file, "dimensiune fisier target: %ld\n", link_size);
     drept_acces(output_file,link_stat);
     
-   
     int numar_linii = numara_linii_fisier(output_filename);
     dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
 
@@ -255,6 +264,7 @@ void procesare_legatura_simbolica(char *link_path, int file_out,char *output_dir
     }
 }
 
+// Funcția de obținere a informațiilor despre un director
 void info_director(int file_out, struct stat dir_stat,char entry_path[], char *output_dir) {
     
     char output_filename[256];
@@ -269,8 +279,6 @@ void info_director(int file_out, struct stat dir_stat,char entry_path[], char *o
     identif_utiliz(output_file, dir_stat); 
     drept_acces(output_file,dir_stat);
     
-
-  
     int numar_linii = numara_linii_fisier(output_filename);
     dprintf(file_out, "Numar de linii %s: %d\n",output_filename, numar_linii);
 
@@ -280,12 +288,14 @@ void info_director(int file_out, struct stat dir_stat,char entry_path[], char *o
 }
 
 
-void procesare_director(char *dir_path, int output_file,char *output_dir) {
+// Funcția principală pentru procesarea directorului
+void procesare_director(char *dir_path, int output_file,char *output_dir,char *ch) {
     DIR *dir_in, *dir_out;
     struct dirent *entry;
     struct stat dir_stat;
-    
-
+    int pfd1[2], pfd2[2];
+    int counter=0;
+    pid_t pid;
 
     if ((dir_in = opendir(dir_path)) == NULL) {
         perror("Error opening input directory");
@@ -297,32 +307,32 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
         return;
     }
 
-
     while ((entry = readdir(dir_in)) != NULL) {
         char entry_path[256];
         snprintf(entry_path, sizeof(entry_path) + 1, "%s/%s", dir_path, entry->d_name);
-            pid_t pid = fork();
-            if(pid<0){
-                printf("Eroare la fork");
-                exit(2);
+        
+        if (pipe(pfd1) < 0)
+        {
+            printf("Eroare la crearea pipe-ului\n");
+        }
+        if (pipe(pfd2) < 0)
+        {
+            printf("Eroare la crearea pipe-ului\n");
+        }
+           
+        
+        if((pid = fork())<0){
+            printf("Eroare la fork");
+            exit(2);
+        }
+
+        if(pid == 0){
+            if (close(pfd1[0]) != 0)
+            {
+                perror("eroare la inchidere pipe-fiu 1-capat citire");
+                exit(1);
             }
-            if(pid == 0){
-            if (entry->d_type == DT_REG) {
-                char file_path[256];
-                snprintf(file_path, sizeof(file_path)+1, "%s/%s", dir_path, entry->d_name);
-                
-                if (strstr(file_path, ".bmp") != NULL )
-                {
-                    process_file_bmp(file_path,output_dir,output_file);
-                    
-                    convert_gri(file_path);   
-                   
-                }else{                
-                process_regular_file(file_path,output_dir,output_file);
-                
-                }    
-            }
-            else if(entry->d_type == DT_LNK){
+            if(entry->d_type == DT_LNK){
            
                 char link_path[256];
                 snprintf(link_path, sizeof(link_path) + 1, "%s/%s", dir_path, entry->d_name);
@@ -339,25 +349,55 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
                 }
                 
                 info_director(output_file, dir_stat,entry_path,output_dir);
-                
             }
-           
+
+            char file_path[256];
+            snprintf(file_path, sizeof(file_path)+1, "%s/%s", dir_path, entry->d_name);
+            
+            if (entry->d_type == DT_REG && (strstr(file_path, ".bmp") != NULL)) {
+                process_file_bmp(file_path,output_dir,output_file); 
+                   
+            }
+            else
+            {                
+               process_regular_file(file_path,output_dir,output_file);
+            }    
             exit(0);
+        }
+
+
+        char file_gri[256];
+        snprintf(file_gri, sizeof(file_gri)+1, "%s/%s", dir_path, entry->d_name);
+        if (entry->d_type == DT_REG && (strstr(file_gri, ".bmp") != NULL)) {
+            if((pid = fork())<0){
+                printf("Eroare la fork");
+                exit(2);
             }
-        
-    }
+            if(pid==0){
+                convert_gri(file_gri);   
+                exit(5);
+            }
+        }
     
+        char file_reg[256];
+        snprintf(file_reg, sizeof(file_reg)+1, "%s/%s", dir_path, entry->d_name);
+        if (entry->d_type == DT_REG && !(strstr(file_reg, ".bmp") != NULL)) {
+            //pipe-uri
+        }
+    }
+
     int status;
-    pid_t childPid;
-    while ((childPid = wait(&status)) > 0) 
+    pid_t waitPid;
+    while ((waitPid = wait(&status)) > 0) 
     {
         if (WIFEXITED(status)) 
         {
-            
-            printf("Child process with PID %d exited with status %d\n", childPid, WEXITSTATUS(status));
+           printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", waitPid, WEXITSTATUS(status));
+        }else{
+            printf("Procesul cu pid-ul %d s-a încheiat cu o eroare\n", waitPid);
         }
     }
-    
+    printf("Au fost identificate in total %d propozitii corecte care contin caracterul %s\n", counter,ch);
     closedir(dir_in);
     closedir(dir_out);
 }
@@ -366,9 +406,9 @@ void procesare_director(char *dir_path, int output_file,char *output_dir) {
 
 int main(int argc, char *argv[]) {
     
-     int output_file;
-    if (argc != 3) {
-        printf("Usage: %s <director_intrare> <director_iesire>\n", argv[0]);
+    int output_file;
+    if (argc != 4) {
+        printf("Usage: %s <director_intrare> <director_iesire> <c> \n", argv[0]);
         exit(-1);
     }
 
@@ -377,7 +417,7 @@ int main(int argc, char *argv[]) {
         exit(3);
     }
    
-    procesare_director(argv[1], output_file,argv[2]);
+    procesare_director(argv[1], output_file,argv[2],argv[3]);
     
     if (close(output_file) != 0) {
         perror("Error close output file");

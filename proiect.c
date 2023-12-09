@@ -44,7 +44,7 @@ void detalii_timp(int output_file,  struct stat file_stat) {
 
 // Funcția pentru afișarea drepturilor de acces
 void drept_acces(int output_file,struct stat file_stat){
-    dprintf(output_file, "drepturi de acces user: %c%c%c\n",
+    dprintf(output_file, "drepturi de acces user: %c%c%c\n", 
                         file_stat.st_mode & S_IRUSR ? 'R' : '-',
                         file_stat.st_mode & S_IWUSR ? 'W' : '-',
                         file_stat.st_mode & S_IXUSR ? 'X' : '-');

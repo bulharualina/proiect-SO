@@ -1,5 +1,8 @@
-nume director: dir
+nume fisier: dir
+dimensiune: 4096 bytes
 identificatorul utilizatorului: 1000
+timpul ultimei modificari :  06.12.2023 
+contorul de legaturi: 2
 drepturi de acces user: RWX
 drepturi de acces grup: R-X
 drepturi de acces altii: R-X
